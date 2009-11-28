@@ -43,7 +43,8 @@ handle_call({get_update}, _From, {{socket, Socket}}) ->
         end;
 %% Sends data via the socket
 handle_call({send_cmd, Text}, _From, {{socket, Socket}}) ->
-    gen_tcp:send(Socket, list_to_binary(Text ++ "\r\n"));
+    gen_tcp:send(Socket, list_to_binary(Text ++ "\r\n")),
+    {noreply, ok};
 handle_call(_, _From, State) ->
     {reply, State}.
 
