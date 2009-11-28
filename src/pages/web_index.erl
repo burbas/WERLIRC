@@ -6,27 +6,33 @@ main() ->
 	#template { file="./wwwroot/template.html"}.
 
 title() ->
-	"web_index".
+	"WERLIRC".
 
 body() ->
     Body = [
-        #label{text="WERLIRC."},
-        #panel{ id=ircLog }
-    ],
+        #panel{id=ircLog, style="background-color: #FFFFFF; border: 1px solid; height: 150px; overflow: auto; padding: 12px; width: 80%"},
+        #p{},
+        #textbox{id=cmd},
+        #button{text="Send", postback=sendCommand}
+     ],
     wf:comet(fun() -> irc_loop() end),
     ircclient:start_link(),
     wf:render(Body).
 
+event(sendCommand) ->
+    [Command] = wf:q(cmd),
+    ircclient:send(Command),
+    ok;
 event(_) -> ok.
 
 irc_loop() ->
-    timer:sleep(100),
+    timer:sleep(10),
     case ircclient:get_update() of 
         {_Type, Message} ->
             Terms = [
                 #p{},
                 #span{text=Message}
-            ],
+           ],
             wf:insert_bottom(ircLog, Terms),
             wf:wire("obj('ircLog').scrollTop = obj('ircLog').scrollHeight;"),
             wf:comet_flush();
@@ -34,5 +40,3 @@ irc_loop() ->
             ok
     end,
     irc_loop().
-
-

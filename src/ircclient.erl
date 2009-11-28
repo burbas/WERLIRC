@@ -1,5 +1,5 @@
 -module(ircclient).
--export([start_link/0, init/1, handle_call/3, get_update/0, send/2, parse/1, strip_crlf/1]).
+-export([start_link/0, init/1, handle_call/3, get_update/0, send/2, send/1, parse/1, strip_crlf/1]).
 
 
 -behaviour(gen_server).
@@ -18,8 +18,12 @@ get_update() ->
     gen_server:call({global, ?MODULE}, {get_update}).
 
 %% Sends to the socket
+send(Text) ->
+    gen_server:call({global, ?MODULE}, {send_cmd, Text}).
+
 send(Socket, Text) ->
     gen_tcp:send(Socket, list_to_binary(Text ++ "\r\n")).
+
 
         
 handle_call({get_update}, _From, {{socket, Socket}}) ->
@@ -37,6 +41,9 @@ handle_call({get_update}, _From, {{socket, Socket}}) ->
             {error, Reason} ->
                 {reply, {error, Reason}, {{socket, Socket}}} 
         end;
+%% Sends data via the socket
+handle_call({send_cmd, Text}, _From, {{socket, Socket}}) ->
+    gen_tcp:send(Socket, list_to_binary(Text ++ "\r\n"));
 handle_call(_, _From, State) ->
     {reply, State}.
 
