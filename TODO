@@ -1,0 +1,5 @@
+- Fix a nice looking layout
+- Function that actually sends things to the socket
+- Support for channels and privmsg
+- Local instances of ircclient (So many clients can connect to irc on the same time)
+
