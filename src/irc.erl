@@ -23,6 +23,8 @@ start(Dispatcher, Server, Port, Username, Realname) ->
 %%%-----------------------------------------------------------
 parse(<<"PING :", Data/binary>>) ->
     {ok, {ping, strip_crlf(binary_to_list(Data))}};
+parse(<<From, " PRIVMSG ", _To, " :", Message>>) ->
+    {ok, {privmsg, {From, Message}}};
 parse(Data) ->
     Str = strip_crlf(binary_to_list(Data)),
     {ok, {general, Str}}.
@@ -45,7 +47,14 @@ strip_crlf(Str) ->
 %%% @end
 %%%-----------------------------------------------------------
 send(Socket, Message) ->
-  gen_tcp:send(Socket, list_to_binary(Text ++ "\r\n")). 
+  io:format(
+          "==========================================~n"
+          "= SENDING MESSAGE                        =~n"
+          "------------------------------------------~n"
+          "~s~n"
+          "==========================================~n",
+          [Message]),
+          gen_tcp:send(Socket, list_to_binary(Message ++ "\r\n")). 
 
 %%%-----------------------------------------------------------
 %%% @doc
@@ -56,23 +65,26 @@ send(Socket, Message) ->
 %%% @end
 %%%-----------------------------------------------------------
 server_loop(Dispatcher, Socket) ->
-  receive 
-    {get_update} ->
-      case gen_tcp:recv(Socket, 0) of 
-        {ok, Packet} ->
-          case parse(Packet) of
-            {ok, {message, Message}} ->
-              Dispatcher ! {message, Message},
-              server_loop(Dispatcher, Socket);
-            {ok, {ping, Data}} ->
-              Dispatcher ! {status, {"Got ping"}},
-              server_loop(Dispatcher, Socket);
-            {ok, {general, Data}} ->
-              Dispatcher ! {status, {Data}},
-              server_loop(Dispatcher, Socket)
-          end;
-        {error, Reason} ->
-          Dispatcher ! {error, Reason},
-          server_loop(Dispatcher, Socket)
-      end
+  receive
+    {command, Cmd} ->
+      send(Socket, Cmd)
+  after 50 ->
+    case gen_tcp:recv(Socket, 0, 50) of 
+      {ok, Packet} ->
+        case parse(Packet) of
+          {ok, {message, Message}} ->
+            Dispatcher ! {message, {Message}},
+            server_loop(Dispatcher, Socket);
+          {ok, {ping, Data}} ->
+            Dispatcher ! {status, {"Got ping~n"}},
+            send(Socket, "PONG " ++ Data),
+            server_loop(Dispatcher, Socket);
+          {ok, {general, Data}} ->
+            Dispatcher ! {status, {Data}},
+            server_loop(Dispatcher, Socket)
+        end;
+      {error, Reason} ->
+        Dispatcher ! {error, Reason},
+        server_loop(Dispatcher, Socket)
+    end
   end.
