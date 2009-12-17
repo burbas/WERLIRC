@@ -1,7 +1,6 @@
 {application, ircclient, [
 	{description,  "Nitrogen Website"},
 	{mod, {ircclient_app, []}},
-    {module, ircclient},
 	{env, [
 		{platform, inets}, %% {inets|yaws|mochiweb}
 		{port, 8000},
