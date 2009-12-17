@@ -8,18 +8,21 @@
 <script src='/nitrogen/nitrogen.js' type='text/javascript' charset='utf-8'></script>
 <link rel="stylesheet" href="/nitrogen/jquery-ui/jquery-ui.css" type="text/css" media="screen" charset="utf-8">
 <link rel="stylesheet" href="/nitrogen/elements.css" type="text/css" media="screen" charset="utf-8">
+<link rel="stylesheet" href="/css/normal.css" type="text/css" media="screen" charset="utf-8">
 </head>
 
 <body>
 
-<h1>[[[page:title()]]]</h1>
 
 [[[element_flash:render()]]]
 
-[[[page:body()]]]
-
-
-
+<div class="mainbox">
+<div id="header"><img src="images/logo.gif"></div>
+<div id="content">
+	[[[page:body()]]]
+</div>
+</div>
+<div id="footer">Powered by <a href="http://www.erlang.org">Erlang</a> and <a href="http://www.nitrogenproject.com">Nitrogen</a></div>
 <script>
 [[[script]]]
 </script>

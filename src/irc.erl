@@ -1,4 +1,3 @@
-
 -module(irc).
 -export([
     start/5,
@@ -68,7 +67,8 @@ send(Socket, Message) ->
 server_loop(Dispatcher, Socket) ->
   receive
     {command, Cmd} ->
-      send(Socket, Cmd)
+      send(Socket, Cmd),
+			server_loop(Dispatcher, Socket)
   after 50 ->
     case gen_tcp:recv(Socket, 0, 50) of 
       {ok, Packet} ->
