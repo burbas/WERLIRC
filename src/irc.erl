@@ -1,6 +1,6 @@
 -module(irc).
 -export([
-    start/5,
+    start/4,
     parse/1,
     strip_crlf/1,
     send/2,
@@ -8,11 +8,11 @@
     ]).
 
 
-start(Dispatcher, Server, Port, Username, Realname) ->
+start(Server, Port, Username, Realname) ->
   {ok, Socket} = gen_tcp:connect(Server, Port, [binary, {packet, 0}, {active, false}]),
   send(Socket, "NICK " ++ Username),
   send(Socket, "USER " ++ Username ++ " " ++ Realname),
-  server_loop(Dispatcher,Socket).
+  server_loop(Socket, []).
 
 %%%-----------------------------------------------------------
 %%% @doc
@@ -23,10 +23,11 @@ start(Dispatcher, Server, Port, Username, Realname) ->
 %%%-----------------------------------------------------------
 parse(<<"PING :", Data/binary>>) ->
     {ok, {ping, strip_crlf(binary_to_list(Data))}};
-parse(<<From, " PRIVMSG ", _To, " :", Message>>) ->
-    {ok, {privmsg, {From, Message}}};
-parse(Data) ->
-    Str = strip_crlf(binary_to_list(Data)),
+parse(<<":", Line/binary>>) ->
+	[Prefix | Message] = re:split(Line, ":", [{parts,2}]),
+	[Nick | User] = re:split(Prefix, "[!@]", [{parts,2}]),
+
+	Str = strip_crlf(binary_to_list(Data)),
     {ok, {general, Str}}.
  
 %%%-----------------------------------------------------------
@@ -64,28 +65,26 @@ send(Socket, Message) ->
 %%% @spec server_loop(Dispatcher::pid(), Socket) -> ok
 %%% @end
 %%%-----------------------------------------------------------
-server_loop(Dispatcher, Socket) ->
+server_loop(Socket, MessageList) ->
   receive
     {command, Cmd} ->
       send(Socket, Cmd),
-			server_loop(Dispatcher, Socket)
-  after 50 ->
+			server_loop(Socket, MessageList);
+		{action, get_update, Pid} ->
+			Pid ! MessageList,
+			server_loop(Socket, [])
+  after 0 ->
     case gen_tcp:recv(Socket, 0, 50) of 
       {ok, Packet} ->
         case parse(Packet) of
-          {ok, {message, Message}} ->
-            Dispatcher ! {message, {Message}},
-            server_loop(Dispatcher, Socket);
           {ok, {ping, Data}} ->
-            Dispatcher ! {status, {"Got ping~n"}},
             send(Socket, "PONG " ++ Data),
-            server_loop(Dispatcher, Socket);
+            server_loop(Socket, [{status, "Got ping~n"}|MessageList]);
+
           {ok, {general, Data}} ->
-            Dispatcher ! {status, {Data}},
-            server_loop(Dispatcher, Socket)
+            server_loop(Socket, [{status, Data}|MessageList])
         end;
       {error, Reason} ->
-        Dispatcher ! {error, Reason},
-        server_loop(Dispatcher, Socket)
+        server_loop(Socket, [{error, Reason}|MessageList])
     end
   end.

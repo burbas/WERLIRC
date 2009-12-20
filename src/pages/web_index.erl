@@ -28,7 +28,8 @@ stage1() ->
 			#p{},
 			#button{id=contunueButton, text="Connect", postback={stage2}}
 		]}
-	].
+	],
+	Output.
 
 %% The chat-window
 stage2() ->
@@ -41,7 +42,8 @@ stage2() ->
 			#textbox{id=cmd},
 			#button{text="Send", postback=sendCommand}
 		]}
-	].
+	],
+	Output.
 
 
 body() ->
@@ -56,37 +58,46 @@ event({stage2}) ->
 	[Server] = wf:q(serverlist),
 	[Port] = wf:q(serverport),
 	wf:update(mainDiv, stage2()),
-	wf:comet(fun() -> running_irc(Nickname, Realname, Server, Port) end);
+	wf:comet(fun() -> start_irc(Nickname, Realname, Server, Port) end);
 event(sendCommand) ->
     IrcPid = wf:session(ircpid),
     [Cmd] = wf:q(cmd),
     IrcPid ! {command, Cmd};
 event(_) -> ok.
 
-
-running_irc(Nickname, Realname, Server, Port) ->
+start_irc(Nickname, Realname, Server, _Port) ->
 	case wf:session(ircpid) of
 		undefined ->
-			Pid = spawn(irc, start, [self(), "irc.efnet.org", 6667, "burbas", "bu rbas is good"]),
+			Pid = spawn(irc, start, [
+							Server, 
+							6667, 
+							Nickname, 
+							Realname
+							]),
   		wf:session(ircpid, Pid);
 		_ ->
 			ok
 		end,
-    receive 
-        {message, {Message}} ->
-            FormatedMsg = wf:f("~w", [Message]),
-            NewIrcLog = [
-                    #span{text=FormatedMsg}
-            ];
-        {status, {Message}} ->
-            FormatedMsg = wf:f("~s", [Message]),
-            NewIrcLog = [
-                    #span{text=FormatedMsg}
-            ]
-    end,
-    wf:insert_bottom(ircStatus, NewIrcLog),
-    wf:wire("obj('ircLog').scrollTop = obj('ircLog').scrollHeight;"),
-    wf:comet_flush(),
-    timer:sleep(500),
-    running_irc(Nickname, Realname, Server, Port).
+		running_irc().
 
+running_irc() ->
+	IrcPid = wf:session(ircpid),
+	IrcPid ! {action, get_update, self()},
+	receive 
+		MessageList ->
+			NewIrcLog = lists:reverse(parseListToNitrogen(MessageList))
+	end,
+	wf:insert_bottom(ircStatus, NewIrcLog),
+	wf:comet_flush(),
+	timer:sleep(1000),
+	running_irc().
+
+
+parseListToNitrogen([]) ->
+	[];
+parseListToNitrogen([{status, Message}|T]) ->
+	[#span{text=Message},#br{}|parseListToNitrogen(T)];
+parseListToNitrogen([{general, Data}|T]) ->
+	[#span{text=Data}, #br{}|parseListToNitrogen(T)];
+parseListToNitrogen([_H|T]) ->
+	parseListToNitrogen(T).
